@@ -10,13 +10,21 @@ let state = {
   results: null
 };
 
+// Whichever facts/results should be printed if the print button is
+// clicked right now — set by whichever view last rendered results,
+// student's own session or an admin viewing a roster student.
+let printContext = null;
+
 const app = document.getElementById('app');
 
 function render(){
   const route = location.hash.replace('#','') || 'landing';
   if (route === 'student') return renderStudentView();
   if (route === 'admin') return renderAdminGate();
+  if (route === 'admin-hub') return renderAdminHub();
   if (route === 'admin-kb') return renderAdminKB();
+  if (route === 'admin-students') return renderAdminStudentList();
+  if (route.startsWith('admin-student-')) return renderAdminStudentDashboard(Number(route.split('-')[2]));
   return renderLanding();
 }
 window.addEventListener('hashchange', render);
@@ -39,8 +47,8 @@ function renderLanding(){
           </div>
           <div class="role-card">
             <h3>Admin</h3>
-            <p>View the system's knowledge base &mdash; every rule, its condition, and the advisory it produces.</p>
-            <button class="btn btn-ghost btn-block" onclick="location.hash='admin'">View knowledge base</button>
+            <p>Browse the system's knowledge base, or open any student's dashboard to see their advisory results.</p>
+            <button class="btn btn-ghost btn-block" onclick="location.hash='admin'">Enter admin area</button>
           </div>
         </div>
       </div>
@@ -144,9 +152,14 @@ function resetDemo(){
 function computeAndRenderVitals(){
   const facts = deriveFacts(state.student);
   state.facts = facts;
+  document.getElementById('vitalsWrap').innerHTML = vitalsHTML(facts);
+  document.getElementById('readinessWrap').innerHTML = readinessBlock(facts);
+}
+
+function vitalsHTML(facts){
   const cgpaClass = facts.cgpa < 2.0 ? 'alert' : facts.cgpa >= 4.0 ? 'good' : '';
   const unitsClass = facts.unitsCompleted < facts.expectedUnits ? 'amber' : 'good';
-  document.getElementById('vitalsWrap').innerHTML = `
+  return `
     <div class="vitals">
       <div class="vitals-row">
         <div class="vital">
@@ -169,7 +182,6 @@ function computeAndRenderVitals(){
       <div class="vitals-trace">${vitalsTraceSVG(facts)}</div>
     </div>
   `;
-  document.getElementById('readinessWrap').innerHTML = readinessBlock(facts);
 }
 
 function readinessBlock(f){
@@ -251,15 +263,19 @@ function runAdvisory(){
 }
 
 function renderResults(){
-  const results = state.results;
   const wrap = document.getElementById('resultsWrap');
-  if (!results){ wrap.innerHTML = ''; return; }
+  wrap.innerHTML = resultsHTML(state.results);
+  printContext = { facts: state.facts, results: state.results };
+  buildPrintReport();
+}
+
+function resultsHTML(results){
+  if (!results) return '';
 
   if (results.length === 0){
-    wrap.innerHTML = `
+    return `
       <div class="section-head"><h2>Advisory Results</h2></div>
       <p class="empty-note">No rules fired for the current record — no flags, no guidance triggered at this time.</p>`;
-    return;
   }
 
   const byCat = {};
@@ -284,14 +300,13 @@ function renderResults(){
     </div>
   `).join('');
 
-  wrap.innerHTML = `
-    <div class="cf-note">Certainty factors reflect how strongly your record supports each rule &mdash; not a guarantee of outcome. Capped below 100% by design: no rule-based inference should claim absolute certainty from a single academic record.</div>
+  return `
+    <div class="cf-note">Certainty factors reflect how strongly the record supports each rule &mdash; not a guarantee of outcome. Capped below 100% by design: no rule-based inference should claim absolute certainty from a single academic record.</div>
     <div class="run-bar" style="justify-content:flex-start;margin-top:0;">
       <button class="btn btn-ghost" onclick="printReport()">Print / save report</button>
     </div>
     ${sections}
   `;
-  buildPrintReport();
 }
 
 function toggleExplain(btn){
@@ -301,8 +316,8 @@ function toggleExplain(btn){
 
 /* ---------------- Printable report ---------------- */
 function buildPrintReport(){
-  const facts = state.facts;
-  const results = state.results;
+  const facts = printContext && printContext.facts;
+  const results = printContext && printContext.results;
   if (!facts || !results) return;
   const byCat = {};
   results.forEach(r => { (byCat[r.category] = byCat[r.category] || []).push(r); });
@@ -351,10 +366,10 @@ function renderAdminGate(){
     ${topbar('Admin', null)}
     <div class="view view-narrow">
       <div class="section-head"><h2>Admin Access</h2></div>
-      <p class="subtitle" style="margin:0 0 18px;text-align:left;">Enter the demo admin password to view the knowledge base.</p>
+      <p class="subtitle" style="margin:0 0 18px;text-align:left;">Enter the demo admin password to continue.</p>
       <div class="access-field">
         <input type="password" id="adminPw" placeholder="Password" onkeydown="if(event.key==='Enter') checkAdminPw()"/>
-        <button class="btn btn-primary btn-block" onclick="checkAdminPw()">View knowledge base</button>
+        <button class="btn btn-primary btn-block" onclick="checkAdminPw()">Enter</button>
         <div class="error-text" id="pwError"></div>
         <div class="hint">Demo password: ${ADMIN_PASSWORD}</div>
       </div>
@@ -366,10 +381,33 @@ function renderAdminGate(){
 function checkAdminPw(){
   const val = document.getElementById('adminPw').value;
   if (val === ADMIN_PASSWORD){
-    location.hash = 'admin-kb';
+    location.hash = 'admin-hub';
   } else {
     document.getElementById('pwError').textContent = 'Incorrect password.';
   }
+}
+
+/* ---------------- Admin: hub ---------------- */
+function renderAdminHub(){
+  app.innerHTML = `
+    ${topbar('Admin', 'Menu')}
+    <div class="view">
+      <div class="section-head"><h2>Admin Area</h2></div>
+      <div class="role-choices">
+        <div class="role-card">
+          <h3>Knowledge Base</h3>
+          <p>Every rule in the system, grouped by category, with its condition and resulting advice.</p>
+          <button class="btn btn-teal btn-block" onclick="location.hash='admin-kb'">View knowledge base</button>
+        </div>
+        <div class="role-card">
+          <h3>Student Records</h3>
+          <p>Browse the student roster and open any individual student's advisory dashboard.</p>
+          <button class="btn btn-teal btn-block" onclick="location.hash='admin-students'">View student records</button>
+        </div>
+      </div>
+    </div>
+    ${footer()}
+  `;
 }
 
 /* ---------------- Admin: knowledge base viewer ---------------- */
@@ -392,6 +430,7 @@ function renderAdminKB(){
   app.innerHTML = `
     ${topbar('Admin', 'Knowledge base')}
     <div class="view">
+      <button class="linklike" style="padding-left:0;" onclick="location.hash='admin-hub'">&larr; Admin menu</button>
       <div class="section-head"><h2>Knowledge Base</h2><span class="meta">${RULES.length} rules &middot; ${Object.keys(byCat).length} categories</span></div>
       <div class="kb-stats">
         <div class="kb-stat"><div class="n">${RULES.length}</div><div class="l">Total Rules</div></div>
@@ -399,6 +438,97 @@ function renderAdminKB(){
         <div class="kb-stat"><div class="n">${CURRICULUM.length}</div><div class="l">Courses in Curriculum</div></div>
       </div>
       ${catBlocks}
+    </div>
+    ${footer()}
+  `;
+}
+
+/* ---------------- Admin: student roster ---------------- */
+function renderAdminStudentList(){
+  const rows = ROSTER.map((s, i) => {
+    const f = deriveFacts(s);
+    const flagClass = f.cgpa < 2.0 || f.outstandingCore.length > 0 ? 'alert' : f.readiness.overall >= 90 ? 'good' : 'amber';
+    return `
+      <div class="kb-rule" style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;cursor:pointer;" onclick="location.hash='admin-student-${i}'">
+        <div>
+          <div style="font-family:var(--serif);font-size:15px;font-weight:600;">${s.name}</div>
+          <div class="kb-rule-top" style="margin:2px 0 0;"><span>${s.regNumber}</span><span>Level ${s.level}</span></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:18px;">
+          <div style="text-align:right;">
+            <div class="label" style="font-family:var(--mono);font-size:10px;color:var(--text-faint);">CGPA</div>
+            <div class="value ${flagClass}" style="font-family:var(--mono);font-weight:600;">${f.cgpa.toFixed(2)}</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="label" style="font-family:var(--mono);font-size:10px;color:var(--text-faint);">Readiness</div>
+            <div class="value ${flagClass}" style="font-family:var(--mono);font-weight:600;">${f.readiness.overall}%</div>
+          </div>
+          <span class="rule-chip">View &rarr;</span>
+        </div>
+      </div>`;
+  }).join('');
+
+  app.innerHTML = `
+    ${topbar('Admin', 'Student records')}
+    <div class="view">
+      <button class="linklike" style="padding-left:0;" onclick="location.hash='admin-hub'">&larr; Admin menu</button>
+      <div class="section-head"><h2>Student Records</h2><span class="meta">${ROSTER.length} students</span></div>
+      ${rows}
+    </div>
+    ${footer()}
+  `;
+}
+
+/* ---------------- Admin: single student dashboard (read-only) ---------------- */
+function renderAdminStudentDashboard(index){
+  const s = ROSTER[index];
+  if (!s){ location.hash = 'admin-students'; return; }
+
+  const facts = deriveFacts(s);
+  const results = runInference(facts);
+  printContext = { facts, results };
+
+  const rows = CURRICULUM.filter(c => c.level <= s.level).map(c => {
+    const rec = s.records.find(r => r[0] === c.code);
+    const grade = rec ? rec[1] : '\u2014';
+    const tag = c.clinical ? '<span class="tag clinical">clinical</span>' : `<span class="tag">${c.category.split(' ')[0]}</span>`;
+    return `
+      <tr>
+        <td class="code-cell" data-label="Code">${c.code}</td>
+        <td data-label="Course">
+          <div>${c.title}</div>
+          <div class="course-title">${c.level}L &middot; Sem ${c.semester} &middot; ${c.units} units &middot; ${tag}</div>
+        </td>
+        <td data-label="Grade"><span class="rule-chip">${grade}</span></td>
+      </tr>`;
+  }).join('');
+
+  app.innerHTML = `
+    ${topbar('Admin', 'Viewing: ' + s.name)}
+    <div class="view">
+      <button class="linklike" style="padding-left:0;" onclick="location.hash='admin-students'">&larr; Student records</button>
+      <div class="student-header">
+        <div class="student-id">
+          <h1>${s.name}</h1>
+          <div class="regno">${s.regNumber} &middot; Level ${s.level} &middot; read-only</div>
+        </div>
+      </div>
+
+      <div>${vitalsHTML(facts)}</div>
+      <div>${readinessBlock(facts)}</div>
+
+      <div class="section-head">
+        <h2>Academic Record</h2>
+        <span class="meta">${rows ? CURRICULUM.filter(c => c.level <= s.level).length : 0} courses on file</span>
+      </div>
+      <div class="record-table-wrap">
+        <table class="records">
+          <thead><tr><th>Code</th><th>Course</th><th>Grade</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+
+      <div>${resultsHTML(results)}</div>
     </div>
     ${footer()}
   `;

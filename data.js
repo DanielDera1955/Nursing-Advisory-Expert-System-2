@@ -76,6 +76,42 @@ const EXPECTED_UNITS_BY_LEVEL = (() => {
   return map;
 })();
 
+// A small roster so the admin side has more than one record to browse.
+// Each represents a different scenario the rule base is meant to catch —
+// not real students, built the same way DEMO_STUDENT is.
+const ROSTER = [
+  {
+    name: 'Ngozi Adeyemi',
+    regNumber: 'NUR/2023/0041',
+    level: 200,
+    records: [['NUR101','A'],['NUR102','A'],['NUR103','A'],['GST101','A'],['NUR104','A'],['NUR105','A'],['NUR106','A'],['NUR201','A'],['NUR202','A'],['NUR203','A'],['NUR204','A'],['NUR205','A'],['NUR206','A']]
+  },
+  {
+    name: 'Emeka Chukwu',
+    regNumber: 'NUR/2022/0117',
+    level: 300,
+    records: [['NUR101','C'],['NUR102','C'],['NUR103','C'],['GST101','C'],['NUR104','C'],['NUR105','C'],['NUR106','C'],['NUR201','C'],['NUR202','D'],['NUR203','C'],['NUR204','C'],['NUR205','D'],['NUR206','C'],['NUR301','F'],['NUR302','D'],['NUR303','C'],['NUR304','C'],['NUR305','C'],['NUR306','C']]
+  },
+  {
+    name: 'Blessing Nwafor',
+    regNumber: 'NUR/2021/0203',
+    level: 400,
+    records: [['NUR101','B'],['NUR102','B'],['NUR103','B'],['GST101','B'],['NUR104','B'],['NUR105','B'],['NUR106','B'],['NUR201','B'],['NUR202','B'],['NUR203','B'],['NUR204','B'],['NUR205','B'],['NUR206','B'],['NUR301','B'],['NUR302','B'],['NUR303','B'],['NUR304','B'],['NUR305','B'],['NUR306','B'],['NUR401','B'],['NUR402','B'],['NUR403','B'],['NUR406','B']]
+  },
+  {
+    name: 'Tunde Bakare',
+    regNumber: 'NUR/2020/0298',
+    level: 500,
+    records: [['NUR101','B'],['NUR102','B'],['NUR103','B'],['GST101','B'],['NUR104','B'],['NUR105','B'],['NUR106','B'],['NUR201','B'],['NUR202','B'],['NUR203','B'],['NUR204','B'],['NUR205','B'],['NUR206','B'],['NUR301','B'],['NUR302','B'],['NUR303','B'],['NUR304','B'],['NUR305','B'],['NUR306','B'],['NUR401','B'],['NUR402','B'],['NUR403','B'],['NUR404','B'],['NUR405','B'],['NUR406','B'],['NUR501','B'],['NUR502','B'],['NUR503','B'],['NUR504','B']]
+  },
+  {
+    name: 'Aisha Bello',
+    regNumber: 'NUR/2023/0055',
+    level: 300,
+    records: [['NUR101','A'],['NUR102','A'],['NUR103','A'],['GST101','A'],['NUR104','A'],['NUR105','A'],['NUR106','A'],['NUR201','A'],['NUR202','A'],['NUR203','A'],['NUR204','A'],['NUR205','A'],['NUR206','A'],['NUR301','A'],['NUR302','A'],['NUR303','A'],['NUR304','A'],['NUR305','A'],['NUR306','A']]
+  }
+];
+
 // A demo academic record so the panel can see the system run without
 // needing to key in a full transcript live. Fully editable in the UI.
 const DEMO_STUDENT = {
