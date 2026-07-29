@@ -88,6 +88,7 @@ function renderStudentView(){
       </div>
 
       <div id="vitalsWrap"></div>
+      <div id="readinessWrap"></div>
 
       <div class="section-head">
         <h2>Academic Record</h2>
@@ -168,6 +169,40 @@ function computeAndRenderVitals(){
       <div class="vitals-trace">${vitalsTraceSVG(facts)}</div>
     </div>
   `;
+  document.getElementById('readinessWrap').innerHTML = readinessBlock(facts);
+}
+
+function readinessBlock(f){
+  const bar = (label, pct) => `
+    <div class="rbar">
+      <span class="rbar-label">${label}</span>
+      <div class="rbar-track"><div class="rbar-fill" style="width:${pct}%"></div></div>
+      <span class="rbar-pct">${pct}%</span>
+    </div>`;
+  const auditList = (title, list, empty) => `
+    <div class="audit-col">
+      <h4>${title} <span>${list.length}</span></h4>
+      ${list.length ? list.map(c => `<div class="audit-row"><span class="code-cell">${c.code}</span>${c.title}</div>`).join('') : `<p class="empty-note" style="padding:6px 0;">${empty}</p>`}
+    </div>`;
+
+  return `
+    <div class="section-head"><h2>Graduation Readiness</h2><span class="meta">${f.readiness.overall}% overall</span></div>
+    <div class="readiness-card">
+      <div class="readiness-overall">${f.readiness.overall}<span>%</span></div>
+      <div class="readiness-bars">
+        ${bar('Academic', f.readiness.academicPct)}
+        ${bar('Credit Units', f.readiness.creditPct)}
+        ${bar('CGPA Standing', f.readiness.cgpaPct)}
+        ${bar('Clinical', f.readiness.clinicalPct)}
+      </div>
+    </div>
+
+    <div class="section-head"><h2>Degree Audit</h2><span class="meta">${f.auditPct}% of due courses complete</span></div>
+    <div class="audit-grid">
+      ${auditList('Remaining', f.remainingCourses, 'Nothing outstanding for your level.')}
+      ${auditList('Completed', f.completedCourses, 'No courses recorded yet.')}
+    </div>
+  `;
 }
 
 // Signature element: a vitals-monitor-style trace, repurposed to show
@@ -237,7 +272,7 @@ function renderResults(){
         <div class="advisory-card severity-${r.severity}">
           <div class="advisory-top">
             <div>
-              <div class="advisory-cat">${r.severity}</div>
+              <div class="advisory-cat">${r.severity} &middot; <span class="cf-badge">${r.certainty}% certainty</span></div>
               <p class="advisory-text">${r.advice}</p>
             </div>
             <span class="rule-chip">${r.id}</span>
@@ -249,12 +284,65 @@ function renderResults(){
     </div>
   `).join('');
 
-  wrap.innerHTML = sections;
+  wrap.innerHTML = `
+    <div class="cf-note">Certainty factors reflect how strongly your record supports each rule &mdash; not a guarantee of outcome. Capped below 100% by design: no rule-based inference should claim absolute certainty from a single academic record.</div>
+    <div class="run-bar" style="justify-content:flex-start;margin-top:0;">
+      <button class="btn btn-ghost" onclick="printReport()">Print / save report</button>
+    </div>
+    ${sections}
+  `;
+  buildPrintReport();
 }
 
 function toggleExplain(btn){
   const box = btn.nextElementSibling;
   box.classList.toggle('hidden');
+}
+
+/* ---------------- Printable report ---------------- */
+function buildPrintReport(){
+  const facts = state.facts;
+  const results = state.results;
+  if (!facts || !results) return;
+  const byCat = {};
+  results.forEach(r => { (byCat[r.category] = byCat[r.category] || []).push(r); });
+
+  const sections = Object.entries(byCat).map(([cat, items]) => `
+    <h3>${cat}</h3>
+    ${items.map(r => `
+      <div class="pr-item">
+        <div class="pr-item-head"><strong>${r.advice}</strong><span>${r.certainty}% certainty &middot; ${r.id}</span></div>
+        <div class="pr-item-explain">${r.explanation}</div>
+      </div>
+    `).join('')}
+  `).join('') || '<p>No rules fired for this record at the time of printing.</p>';
+
+  document.getElementById('printReport').innerHTML = `
+    <div class="pr-head">
+      <div class="pr-seal">CU</div>
+      <div>
+        <h1>Nursing Student Academic Advisory Report</h1>
+        <p>Design and Implementation of an Expert System for Student Use in the School of Nursing, Caritas University</p>
+      </div>
+    </div>
+    <div class="pr-meta">
+      <div><strong>${facts.name}</strong> &middot; ${facts.regNumber} &middot; Level ${facts.level}</div>
+      <div>Generated ${new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'long', year:'numeric' })}</div>
+    </div>
+    <div class="pr-vitals">
+      <div><span>CGPA</span><strong>${facts.cgpa.toFixed(2)}</strong></div>
+      <div><span>Credit Units</span><strong>${facts.unitsCompleted}/${facts.expectedUnits}</strong></div>
+      <div><span>Core Outstanding</span><strong>${facts.outstandingCore.length}</strong></div>
+      <div><span>Clinical Blocks</span><strong>${facts.blockedClinical.length}</strong></div>
+    </div>
+    ${sections}
+    <div class="pr-footer">Certainty factors reflect how strongly the academic record supports each rule, not a guarantee of outcome.</div>
+  `;
+}
+
+function printReport(){
+  buildPrintReport();
+  window.print();
 }
 
 /* ---------------- Admin: password gate ---------------- */
